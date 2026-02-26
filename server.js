@@ -45,6 +45,14 @@ function resolveExerciseNames(exercises) {
 }
 
 app.use(express.json());
+// Prevent aggressive caching so deploys show up immediately
+app.use((req, res, next) => {
+  const ext = path.extname(req.path) || (req.path === '/' ? '.html' : '');
+  if (['.html', '.js', '.css'].includes(ext) || req.path === '/') {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  }
+  next();
+});
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Auth middleware: extract and verify JWT
