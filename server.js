@@ -20,19 +20,21 @@ const supabaseAdmin = supabaseUrl && supabaseServiceKey
   : null;
 
 function resolveExerciseNames(exercises) {
-  if (!exercises?.length) return Promise.resolve(exercises.map(e => ({ ...e, display_name: e.custom_name || '' })));
+  if (!exercises?.length) return Promise.resolve(exercises.map(e => ({ ...e, display_name: e.custom_name || '', display_equipment: e.equipment || null })));
   const libIds = [...new Set(exercises.map(e => e.library_exercise_id).filter(Boolean))];
   if (libIds.length === 0) {
-    return Promise.resolve(exercises.map(e => ({ ...e, display_name: e.custom_name || '' })));
+    return Promise.resolve(exercises.map(e => ({ ...e, display_name: e.custom_name || '', display_equipment: e.equipment || null })));
   }
   const db = supabaseAdmin || supabase;
-  if (!db) return Promise.resolve(exercises.map(e => ({ ...e, display_name: e.custom_name || '' })));
-  return db.from('exercise_library').select('id, name').in('id', libIds)
+  if (!db) return Promise.resolve(exercises.map(e => ({ ...e, display_name: e.custom_name || '', display_equipment: e.equipment || null })));
+  return db.from('exercise_library').select('id, name, equipment').in('id', libIds)
     .then(({ data: libs }) => {
-      const map = (libs || []).reduce((acc, l) => { acc[l.id] = l.name; return acc; }, {});
+      const nameMap = (libs || []).reduce((acc, l) => { acc[l.id] = l.name; return acc; }, {});
+      const equipMap = (libs || []).reduce((acc, l) => { acc[l.id] = l.equipment || null; return acc; }, {});
       return exercises.map(e => ({
         ...e,
-        display_name: e.custom_name || (e.library_exercise_id ? map[e.library_exercise_id] || '' : ''),
+        display_name: e.custom_name || (e.library_exercise_id ? nameMap[e.library_exercise_id] || '' : ''),
+        display_equipment: e.library_exercise_id ? (equipMap[e.library_exercise_id] || null) : (e.equipment || null),
       }));
     });
 }
@@ -97,6 +99,29 @@ app.get('/api/plans', requireAuth, async (req, res) => {
     .order('created_at', { ascending: false });
   if (error) return res.status(500).json({ error: error.message });
   res.json(data || []);
+});
+
+// Update plan (e.g. equipment_tags)
+app.patch('/api/plans/:id', requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const { equipment_tags } = req.body;
+  const { data: plan } = await supabase
+    .from('plans')
+    .select('owner_id')
+    .eq('id', id)
+    .single();
+  if (!plan || plan.owner_id !== req.user.id) return res.status(404).json({ error: 'Plan not found' });
+  const updates = {};
+  if (Array.isArray(equipment_tags)) updates.equipment_tags = equipment_tags;
+  if (Object.keys(updates).length === 0) return res.status(400).json({ error: 'No valid updates' });
+  const { data: updated, error } = await supabase
+    .from('plans')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(updated);
 });
 
 app.get('/api/plans/:id', requireAuth, async (req, res) => {
@@ -431,16 +456,35 @@ app.post('/api/user-plans/:id/complete', requireAuth, async (req, res) => {
   res.json(updated);
 });
 
+// --- Equipment options (all unique equipment from library) ---
+app.get('/api/equipment-options', optionalAuth, async (req, res) => {
+  const { data, error } = await supabase
+    .from('exercise_library')
+    .select('equipment')
+    .not('equipment', 'is', null);
+  if (error) return res.status(500).json({ error: error.message });
+  const set = new Set((data || []).map(r => r.equipment).filter(Boolean));
+  const list = ['Bodyweight', ...Array.from(set).filter(e => e !== 'Bodyweight').sort()];
+  res.json(list);
+});
+
 // --- Exercise library ---
 app.get('/api/exercise-library', optionalAuth, async (req, res) => {
   let query = supabase.from('exercise_library').select('*');
-  const { category, equipment } = req.query;
+  const { category, equipment, equipment_tags } = req.query;
   if (category) query = query.eq('category', category);
   if (equipment) query = query.ilike('equipment', `%${equipment}%`);
   query = query.order('name');
   const { data, error } = await query;
   if (error) return res.status(500).json({ error: error.message });
-  res.json(data || []);
+  let list = data || [];
+  // Filter by user's equipment: show exercises where equipment is null, Bodyweight, or in equipment_tags
+  if (equipment_tags) {
+    const tags = equipment_tags.split(',').map(t => t.trim()).filter(Boolean);
+    const allowed = new Set([...tags, 'Bodyweight']);
+    list = list.filter(ex => !ex.equipment || allowed.has(ex.equipment));
+  }
+  res.json(list);
 });
 
 // --- Swap exercise ---
@@ -477,7 +521,8 @@ app.patch('/api/day-exercises/:id', requireAuth, async (req, res) => {
   if (sets_reps !== undefined) updates.sets_reps = sets_reps;
   if (notes !== undefined) updates.notes = notes;
   if (req.body.url !== undefined) updates.url = req.body.url;
-  if (library_exercise_id) updates.custom_name = null;
+  if (req.body.equipment !== undefined) updates.equipment = req.body.equipment;
+  if (library_exercise_id) { updates.custom_name = null; updates.equipment = null; }
   if (custom_name) updates.library_exercise_id = null;
 
   const { data: updated, error } = await supabase

@@ -1,5 +1,5 @@
 import { initAuth, signInWithMagicLink, signOut, getToken } from './auth.js';
-import { loadActivePlan, createAndStartPlan, getShareUrl, renderPlan, swapExercise, getExerciseLibrary } from './plan.js';
+import { loadActivePlan, createAndStartPlan, getShareUrl, renderPlan, swapExercise, getExerciseLibrary, getEquipmentOptions } from './plan.js';
 import { isSharePage, getSharePreview, acceptShare } from './share.js';
 
 const container = document.getElementById('app');
@@ -86,7 +86,7 @@ function escapeHtml(s) {
   return div.innerHTML;
 }
 
-function showSwapModal(exerciseId, currentName, category, setsReps = '', notes = '', url = '') {
+function showSwapModal(exerciseId, currentName, category, setsReps = '', notes = '', url = '', equipment = '') {
   const modal = document.createElement('div');
   modal.className = 'modal-overlay';
   modal.innerHTML = `
@@ -100,6 +100,10 @@ function showSwapModal(exerciseId, currentName, category, setsReps = '', notes =
         </select>
         <label>Or type custom:</label>
         <input type="text" id="swap-custom-name" placeholder="Exercise name" />
+        <label>Equipment (for custom):</label>
+        <select id="swap-equipment">
+          <option value="">None</option>
+        </select>
         <label>YouTube or demo URL:</label>
         <input type="url" id="swap-url" placeholder="https://youtube.com/..." value="${escapeHtml(url)}" />
         <label>Sets/Reps:</label>
@@ -116,11 +120,16 @@ function showSwapModal(exerciseId, currentName, category, setsReps = '', notes =
 
   const select = modal.querySelector('#swap-library-select');
   const customInput = modal.querySelector('#swap-custom-name');
+  const equipmentSelect = modal.querySelector('#swap-equipment');
   const urlInput = modal.querySelector('#swap-url');
   const setsRepsInput = modal.querySelector('#swap-sets-reps');
   const notesInput = modal.querySelector('#swap-notes');
 
-  getExerciseLibrary(category).then(library => {
+  const equipmentTags = currentPlanData?.plan?.equipment_tags || [];
+  getEquipmentOptions().then(opts => {
+    equipmentSelect.innerHTML = '<option value="">None</option>' + opts.map(o => `<option value="${escapeHtml(o)}" ${o === equipment ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
+  });
+  getExerciseLibrary(category, equipmentTags).then(library => {
     library.forEach(ex => {
       const opt = document.createElement('option');
       opt.value = ex.id;
@@ -136,6 +145,7 @@ function showSwapModal(exerciseId, currentName, category, setsReps = '', notes =
     const setsReps = setsRepsInput.value.trim();
     const notes = notesInput.value.trim();
     const url = urlInput.value.trim() || undefined;
+    const equip = equipmentSelect.value.trim() || undefined;
     if (!libraryId && !customName) {
       alert('Choose from library or enter a custom exercise name');
       return;
@@ -151,6 +161,7 @@ function showSwapModal(exerciseId, currentName, category, setsReps = '', notes =
         sets_reps: setsReps,
         notes: notes || undefined,
         url,
+        equipment: equip,
       });
       modal.remove();
       loadAndRenderPlan();
@@ -249,6 +260,7 @@ async function main() {
 
   window.addEventListener('auth:signed-in', () => window.location.reload());
   window.addEventListener('auth:signed-out', () => window.location.reload());
+  window.addEventListener('plan:equipment-changed', () => loadAndRenderPlan());
 
   window.addEventListener('plan:swap-exercise', (e) => {
     const { exerciseId } = e.detail;
@@ -257,9 +269,10 @@ async function main() {
     const setsReps = ex?.sets_reps || '';
     const notes = ex?.notes || '';
     const url = ex?.url || '';
+    const equipment = ex?.display_equipment || ex?.equipment || '';
     const day = ex ? currentPlanData?.plan?.days?.find(d => d.exercises?.some(x => x.id === exerciseId)) : null;
     const category = day?.type === 'hiit' ? 'hiit' : day?.type === 'upper' ? 'upper' : day?.type === 'lower' ? 'lower' : 'full';
-    showSwapModal(exerciseId, name, category, setsReps, notes, url);
+    showSwapModal(exerciseId, name, category, setsReps, notes, url, equipment);
   });
 }
 
