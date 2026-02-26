@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weekly Workout Plan</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --black: #0a0a0a;
+    --dark: #111111;
+    --card: #181818;
+    --border: #2a2a2a;
+    --red: #e63232;
+    --orange: #ff6b35;
+    --yellow: #f5c518;
+    --white: #f0f0f0;
+    --muted: #666;
+    --hiit: #e63232;
+    --strength: #3a7bd5;
+    --full: #22c55e;
+    --rest: #444;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--black);
+    color: var(--white);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Noise texture overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.5;
+  }
+
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header */
+  header {
+    padding: 60px 0 40px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 48px;
+    position: relative;
+  }
+
+  .header-top {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  .program-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    color: var(--red);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(52px, 8vw, 96px);
+    line-height: 0.9;
+    letter-spacing: 0.02em;
+    color: var(--white);
+  }
+
+  h1 span {
+    color: var(--red);
+  }
+
+  .stats-bar {
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+  }
+
+  .stat {
+    text-align: right;
+  }
+
+  .stat-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    color: var(--yellow);
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-top: 2px;
+  }
+
+  /* Equipment strip */
+  .equipment-strip {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 16px 24px;
+    margin-bottom: 40px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .equipment-strip .eq-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .eq-divider { width: 1px; height: 20px; background: var(--border); }
+
+  .eq-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .eq-tag {
+    font-size: 12px;
+    color: var(--white);
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 3px 10px;
+  }
+
+  /* Week grid */
+  .week-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    margin-bottom: 48px;
+  }
+
+  .day-pill {
+    padding: 10px 6px;
+    text-align: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: 1px solid transparent;
+  }
+
+  .day-pill .abbr { font-size: 13px; font-weight: 600; display: block; margin-bottom: 4px; }
+
+  .day-pill[data-type="hiit"] { background: rgba(230,50,50,0.15); color: var(--red); border-color: rgba(230,50,50,0.3); }
+  .day-pill[data-type="strength"] { background: rgba(58,123,213,0.15); color: #6aa3f8; border-color: rgba(58,123,213,0.3); }
+  .day-pill[data-type="full"] { background: rgba(34,197,94,0.15); color: #4ade80; border-color: rgba(34,197,94,0.3); }
+  .day-pill[data-type="rest"] { background: rgba(60,60,60,0.3); color: var(--muted); }
+
+  .day-pill.active { transform: scale(1.05); filter: brightness(1.3); border-width: 2px; }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 40px;
+    flex-wrap: wrap;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .legend-dot.hiit { background: var(--red); }
+  .legend-dot.strength { background: #3a7bd5; }
+  .legend-dot.full { background: #22c55e; }
+  .legend-dot.rest { background: #444; }
+
+  /* Day cards */
+  .days-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .day-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .day-card:hover { border-color: #3a3a3a; }
+
+  .day-header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 20px 24px;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+  }
+
+  .day-number {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 48px;
+    line-height: 1;
+    color: #222;
+    min-width: 52px;
+  }
+
+  .day-info { flex: 1; }
+
+  .day-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 0.05em;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .day-meta {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .day-type-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 2px;
+    font-weight: 500;
+  }
+
+  .badge-hiit { background: rgba(230,50,50,0.2); color: var(--red); }
+  .badge-upper { background: rgba(58,123,213,0.2); color: #6aa3f8; }
+  .badge-lower { background: rgba(168,85,247,0.2); color: #c084fc; }
+  .badge-full { background: rgba(34,197,94,0.2); color: #4ade80; }
+  .badge-rest { background: rgba(80,80,80,0.2); color: var(--muted); }
+
+  .day-duration {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .chevron {
+    font-size: 18px;
+    color: var(--muted);
+    transition: transform 0.3s;
+    margin-left: auto;
+  }
+
+  .day-card.open .chevron { transform: rotate(180deg); }
+
+  .day-card.open .day-header {
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Type stripe */
+  .day-card[data-type="hiit"] .day-header::before { background: var(--red); }
+  .day-card[data-type="upper"] .day-header::before { background: #3a7bd5; }
+  .day-card[data-type="lower"] .day-header::before { background: #9333ea; }
+  .day-card[data-type="full"] .day-header::before { background: #22c55e; }
+  .day-card[data-type="rest"] .day-header::before { background: #333; }
+
+  .day-header::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+  }
+
+  /* Body */
+  .day-body {
+    display: none;
+    padding: 24px;
+  }
+
+  .day-card.open .day-body { display: block; }
+
+  /* Sections */
+  .section {
+    margin-bottom: 28px;
+  }
+
+  .section-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Exercise table */
+  .exercise-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .exercise-table tr { border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .exercise-table tr:last-child { border-bottom: none; }
+
+  .exercise-table td {
+    padding: 10px 0;
+    font-size: 14px;
+    vertical-align: top;
+  }
+
+  .exercise-table td:first-child {
+    font-weight: 500;
+    color: var(--white);
+    width: 45%;
+    padding-right: 16px;
+  }
+
+  .exercise-table td:nth-child(2) {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--yellow);
+    width: 25%;
+  }
+
+  .exercise-table td:nth-child(3) {
+    font-size: 12px;
+    color: var(--muted);
+    width: 30%;
+  }
+
+  /* HIIT circuit */
+  .hiit-circuit {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .hiit-move {
+    background: rgba(230,50,50,0.08);
+    border: 1px solid rgba(230,50,50,0.2);
+    border-radius: 4px;
+    padding: 12px 14px;
+  }
+
+  .hiit-move-name {
+    font-weight: 500;
+    font-size: 13px;
+    margin-bottom: 4px;
+    color: var(--white);
+  }
+
+  .hiit-move-time {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--red);
+  }
+
+  .hiit-structure {
+    background: rgba(230,50,50,0.05);
+    border-left: 2px solid var(--red);
+    padding: 12px 16px;
+    border-radius: 0 4px 4px 0;
+    margin-bottom: 16px;
+    font-size: 13px;
+    color: #ccc;
+    line-height: 1.6;
+  }
+
+  .note-box {
+    background: rgba(245,197,24,0.06);
+    border-left: 2px solid var(--yellow);
+    padding: 12px 16px;
+    border-radius: 0 4px 4px 0;
+    font-size: 13px;
+    color: #aaa;
+    line-height: 1.6;
+  }
+
+  .note-box strong { color: var(--yellow); }
+
+  .rest-card {
+    text-align: center;
+    padding: 40px 20px;
+  }
+
+  .rest-icon {
+    font-size: 48px;
+    margin-bottom: 12px;
+  }
+
+  .rest-card h3 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .rest-card p {
+    color: var(--muted);
+    font-size: 14px;
+    max-width: 360px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  @media (max-width: 600px) {
+    .week-grid { grid-template-columns: repeat(7, 1fr); }
+    .day-pill { padding: 8px 2px; font-size: 9px; }
+    .stats-bar { display: none; }
+    h1 { font-size: 52px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="header-top">
+      <div>
+        <div class="program-label">● Home Gym Program</div>
+        <h1>WEEKLY<br><span>GRIND</span></h1>
+      </div>
+      <div class="stats-bar">
+        <div class="stat">
+          <div class="stat-num">7</div>
+          <div class="stat-label">Days</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">5</div>
+          <div class="stat-label">Work Days</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">2</div>
+          <div class="stat-label">HIIT Sessions</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="equipment-strip">
+    <span class="eq-label">Equipment</span>
+    <div class="eq-divider"></div>
+    <div class="eq-tags">
+      <span class="eq-tag">Hoist Power Rack</span>
+      <span class="eq-tag">Barbell + Plates</span>
+      <span class="eq-tag">Adjustable Dumbbells</span>
+      <span class="eq-tag">EZ Curl Bar</span>
+      <span class="eq-tag">Adjustable Bench</span>
+      <span class="eq-tag">TRX</span>
+      <span class="eq-tag">Resistance Bands</span>
+      <span class="eq-tag">Kettlebell</span>
+      <span class="eq-tag">Medicine Ball</span>
+      <span class="eq-tag">Ab Wheel</span>
+      <span class="eq-tag">Balance Disc</span>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot hiit"></div> HIIT</div>
+    <div class="legend-item"><div class="legend-dot strength"></div> Upper Body</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#9333ea"></div> Lower Body</div>
+    <div class="legend-item"><div class="legend-dot full"></div> Full Body</div>
+    <div class="legend-item"><div class="legend-dot rest"></div> Rest</div>
+  </div>
+
+  <div class="week-grid">
+    <div class="day-pill" data-type="strength"><span class="abbr">MON</span>Upper</div>
+    <div class="day-pill" data-type="hiit"><span class="abbr">TUE</span>HIIT</div>
+    <div class="day-pill" data-type="strength" style="background:rgba(147,51,234,0.15);color:#c084fc;border-color:rgba(147,51,234,0.3)"><span class="abbr">WED</span>Lower</div>
+    <div class="day-pill" data-type="rest"><span class="abbr">THU</span>Rest</div>
+    <div class="day-pill" data-type="full"><span class="abbr">FRI</span>Full</div>
+    <div class="day-pill" data-type="hiit"><span class="abbr">SAT</span>HIIT</div>
+    <div class="day-pill" data-type="rest"><span class="abbr">SUN</span>Rest</div>
+  </div>
+
+  <div class="days-list">
+
+    <!-- MONDAY -->
+    <div class="day-card" data-type="upper">
+      <div class="day-header" onclick="toggle(this)">
+        <div class="day-number">01</div>
+        <div class="day-info">
+          <div class="day-name">Monday — Upper Body Push/Pull</div>
+          <div class="day-meta">
+            <span class="day-type-badge badge-upper">Strength</span>
+            <span class="day-duration">⏱ 55–65 min</span>
+          </div>
+        </div>
+        <div class="chevron">▾</div>
+      </div>
+      <div class="day-body">
+        <div class="section">
+          <div class="section-title">Warm-Up — 5 min</div>
+          <table class="exercise-table">
+            <tr><td>TRX Face Pulls</td><td>2 × 15</td><td>Activate rear delts</td></tr>
+            <tr><td>Band Pull-Aparts</td><td>2 × 20</td><td>Resistance band</td></tr>
+            <tr><td>Arm Circles + Shoulder Rolls</td><td>30 sec each</td><td>Bodyweight</td></tr>
+          </table>
+        </div>
+        <div class="section">
+          <div class="section-title">Main Work</div>
+          <table class="exercise-table">
+            <tr><td>Barbell Bench Press</td><td>4 × 6–8</td><td>Rest 90 sec</td></tr>
+            <tr><td>Barbell Bent-Over Row</td><td>4 × 8</td><td>Rest 90 sec</td></tr>
+            <tr><td>Dumbbell Incline Press</td><td>3 × 10</td><td>Bench + DBs</td></tr>
+            <tr><td>TRX Row (feet elevated)</td><td>3 × 12</td><td>Control the negative</td></tr>
+            <tr><td>Dumbbell Lateral Raises</td><td>3 × 15</td><td>Slow, no swinging</td></tr>
+            <tr><td>EZ Bar Curl</td><td>3 × 12</td><td>Full range of motion</td></tr>
+            <tr><td>Tricep Pushdowns (band)</td><td>3 × 15</td><td>Resistance band</td></tr>
+          </table>
+        </div>
+        <div class="section">
+          <div class="section-title">Finisher — Core</div>
+          <table class="exercise-table">
+            <tr><td>Ab Wheel Rollouts</td><td>3 × 10</td><td>Slow and controlled</td></tr>
+            <tr><td>TRX Plank Hold</td><td>3 × 30 sec</td><td>Feet in TRX straps</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TUESDAY HIIT -->
+    <div class="day-card" data-type="hiit">
+      <div class="day-header" onclick="toggle(this)">
+        <div class="day-number">02</div>
+        <div class="day-info">
+          <div class="day-name">Tuesday — HIIT Metabolic Circuit</div>
+          <div class="day-meta">
+            <span class="day-type-badge badge-hiit">HIIT</span>
+            <span class="day-duration">⏱ 30–40 min</span>
+          </div>
+        </div>
+        <div class="chevron">▾</div>
+      </div>
+      <div class="day-body">
+        <div class="section">
+          <div class="section-title">Structure</div>
+          <div class="hiit-structure">
+            <strong style="color:var(--red)">Format:</strong> 4 rounds of the circuit below<br>
+            <strong style="color:var(--red)">Work:</strong> 40 seconds ON / 20 seconds REST per exercise<br>
+            <strong style="color:var(--red)">Round Rest:</strong> 90 seconds between full rounds<br>
+            <strong style="color:var(--red)">Warm-up:</strong> 5 min light movement + dynamic stretching
+          </div>
+        </div>
+        <div class="section">
+          <div class="section-title">Circuit (6 Moves)</div>
+          <div class="hiit-circuit">
+            <div class="hiit-move">
+              <div class="hiit-move-name">Kettlebell Swings</div>
+              <div class="hiit-move-time">40 sec on / 20 off</div>
+            </div>
+            <div class="hiit-move">
+              <div class="hiit-move-name">TRX Jump Squats</div>
+              <div class="hiit-move-time">40 sec on / 20 off</div>
+            </div>
+            <div class="hiit-move">
+              <div class="hiit-move-name">Medicine Ball Slams</div>
+              <div class="hiit-move-time">40 sec on / 20 off</div>
+            </div>
+            <div class="hiit-move">
+              <div class="hiit-move-name">Barbell Clean & Press</div>
+              <div class="hiit-move-time">40 sec on / 20 off</div>
+            </div>
+            <div class="hiit-move">
+              <div class="hiit-move-name">Band Squat to Row</div>
+              <div class="hiit-move-time">40 sec on / 20 off</div>
+            </div>
+            <div class="hiit-move">
+              <div class="hiit-move-name">Balance Disc Burpees</div>
+              <div class="hiit-move-time">40 sec on / 20 off</div>
+            </div>
+          </div>
+        </div>
+        <div class="note-box">
+          <strong>Coaching note:</strong> Light–moderate weight on the clean & press — this is cardio, not a max lift. Push hard on intensity, keep form tight on swings. Cool down 5 min with foam roller and light stretching.
+        </div>
+      </div>
+    </div>
+
+    <!-- WEDNESDAY LOWER -->
+    <div class="day-card" data-type="lower">
+      <div class="day-header" onclick="toggle(this)">
+        <div class="day-number">03</div>
+        <div class="day-info">
+          <div class="day-name">Wednesday — Lower Body Strength</div>
+          <div class="day-meta">
+            <span class="day-type-badge badge-lower">Lower Body</span>
+            <span class="day-duration">⏱ 55–65 min</span>
+          </div>
+        </div>
+        <div class="chevron">▾</div>
+      </div>
+      <div class="day-body">
+        <div class="section">
+          <div class="section-title">Warm-Up — 5 min</div>
+          <table class="exercise-table">
+            <tr><td>Hip Circle Mobilization</td><td>2 × 10 each</td><td>Bodyweight</td></tr>
+            <tr><td>Band Lateral Walks</td><td>2 × 15 steps</td><td>Resistance band</td></tr>
+            <tr><td>Goblet Squat (light KB)</td><td>2 × 10</td><td>Deep range of motion</td></tr>
+          </table>
+        </div>
+        <div class="section">
+          <div class="section-title">Main Work</div>
+          <table class="exercise-table">
+            <tr><td>Barbell Back Squat</td><td>4 × 6–8</td><td>Rest 2 min, full depth</td></tr>
+            <tr><td>Romanian Deadlift (barbell)</td><td>4 × 8–10</td><td>Feel the hamstrings</td></tr>
+            <tr><td>Dumbbell Walking Lunges</td><td>3 × 12 each leg</td><td>Use open floor space</td></tr>
+            <tr><td>TRX Single-Leg Squat</td><td>3 × 10 each</td><td>TRX for assistance</td></tr>
+            <tr><td>Kettlebell Goblet Squat</td><td>3 × 15</td><td>Pause at bottom 1 sec</td></tr>
+            <tr><td>Standing Calf Raises (barbell)</td><td>4 × 20</td><td>Slow negative</td></tr>
+          </table>
+        </div>
+        <div class="section">
+          <div class="section-title">Core + Stability Finisher</div>
+          <table class="exercise-table">
+            <tr><td>Balance Disc Single-Leg Stand</td><td>3 × 45 sec each</td><td>Eyes closed = harder</td></tr>
+            <tr><td>Ab Wheel Rollouts</td><td>3 × 10</td><td>Core stability</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- THURSDAY REST -->
+    <div class="day-card" data-type="rest">
+      <div class="day-header" onclick="toggle(this)">
+        <div class="day-number">04</div>
+        <div class="day-info">
+          <div class="day-name">Thursday — Active Recovery</div>
+          <div class="day-meta">
+            <span class="day-type-badge badge-rest">Rest Day</span>
+            <span class="day-duration">⏱ Optional 20 min</span>
+          </div>
+        </div>
+        <div class="chevron">▾</div>
+      </div>
+      <div class="day-body">
+        <div class="rest-card">
+          <div class="rest-icon">🔋</div>
+          <h3>Recharge</h3>
+          <p>Full rest or active recovery only. Light walk, foam rolling, TRX passive stretching, or yoga. Let your CNS recover before Friday's full-body session. Prioritize sleep and protein intake today.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- FRIDAY FULL BODY -->
+    <div class="day-card" data-type="full">
+      <div class="day-header" onclick="toggle(this)">
+        <div class="day-number">05</div>
+        <div class="day-info">
+          <div class="day-name">Friday — Full Body Compound Power</div>
+          <div class="day-meta">
+            <span class="day-type-badge badge-full">Full Body</span>
+            <span class="day-duration">⏱ 60–70 min</span>
+          </div>
+        </div>
+        <div class="chevron">▾</div>
+      </div>
+      <div class="day-body">
+        <div class="section">
+          <div class="section-title">Warm-Up — 5 min</div>
+          <table class="exercise-table">
+            <tr><td>TRX Squat + Row Combo</td><td>2 × 10</td><td>Full body activation</td></tr>
+            <tr><td>Band Shoulder Pass-Throughs</td><td>2 × 10</td><td>Mobility</td></tr>
+            <tr><td>Inchworms</td><td>2 × 5</td><td>Bodyweight</td></tr>
+          </table>
+        </div>
+        <div class="section">
+          <div class="section-title">Main Compound Lifts (Heavy)</div>
+          <table class="exercise-table">
+            <tr><td>Deadlift (barbell)</td><td>5 × 5</td><td>Heaviest lift of week</td></tr>
+            <tr><td>Barbell Overhead Press</td><td>4 × 6–8</td><td>Rest 2 min</td></tr>
+            <tr><td>Barbell Row</td><td>4 × 8</td><td>Supinate grip</td></tr>
+          </table>
+        </div>
+        <div class="section">
+          <div class="section-title">Accessory Work</div>
+          <table class="exercise-table">
+            <tr><td>Dumbbell Farmer's Carry</td><td>3 × 40m</td><td>Heavy as possible</td></tr>
+            <tr><td>TRX Push-Up (feet elevated)</td><td>3 × 12</td><td>Slow negative</td></tr>
+            <tr><td>Dumbbell Hammer Curls</td><td>3 × 12</td><td>Superset with triceps</td></tr>
+            <tr><td>Overhead Band Tricep Extension</td><td>3 × 15</td><td>Superset with curls</td></tr>
+          </table>
+        </div>
+        <div class="section">
+          <div class="section-title">Core Finisher</div>
+          <table class="exercise-table">
+            <tr><td>Medicine Ball Russian Twists</td><td>3 × 20</td><td>Weighted, slow</td></tr>
+            <tr><td>TRX Pike</td><td>3 × 12</td><td>Feet in straps, hips high</td></tr>
+            <tr><td>Dead Bug (bodyweight)</td><td>3 × 10 each</td><td>Lower back protection</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SATURDAY HIIT 2 -->
+    <div class="day-card" data-type="hiit">
+      <div class="day-header" onclick="toggle(this)">
+        <div class="day-number">06</div>
+        <div class="day-info">
+          <div class="day-name">Saturday — HIIT Strength Intervals</div>
+          <div class="day-meta">
+            <span class="day-type-badge badge-hiit">HIIT</span>
+            <span class="day-duration">⏱ 35–45 min</span>
+          </div>
+        </div>
+        <div class="chevron">▾</div>
+      </div>
+      <div class="day-body">
+        <div class="section">
+          <div class="section-title">Structure — EMOM Style</div>
+          <div class="hiit-structure">
+            <strong style="color:var(--red)">Format:</strong> Every Minute On the Minute (EMOM) — 20 minutes<br>
+            <strong style="color:var(--red)">Alternating:</strong> Odd minutes = Exercise A → Even minutes = Exercise B<br>
+            <strong style="color:var(--red)">Then:</strong> 10-minute Tabata finisher (20 sec on / 10 sec off)
+          </div>
+        </div>
+        <div class="section">
+          <div class="section-title">EMOM — 20 Minutes</div>
+          <div class="hiit-circuit">
+            <div class="hiit-move">
+              <div class="hiit-move-name">A: Barbell Hang Clean (5 reps)</div>
+              <div class="hiit-move-time">Odd minutes — explosive</div>
+            </div>
+            <div class="hiit-move">
+              <div class="hiit-move-name">B: TRX Burpee (8 reps)</div>
+              <div class="hiit-move-time">Even minutes — conditioning</div>
+            </div>
+          </div>
+        </div>
+        <div class="section">
+          <div class="section-title">Tabata Finisher — 10 Minutes</div>
+          <div class="hiit-circuit">
+            <div class="hiit-move">
+              <div class="hiit-move-name">Kettlebell Goblet Squat Jumps</div>
+              <div class="hiit-move-time">20 sec on / 10 sec off</div>
+            </div>
+            <div class="hiit-move">
+              <div class="hiit-move-name">Medicine Ball Chest Throw (wall)</div>
+              <div class="hiit-move-time">20 sec on / 10 sec off</div>
+            </div>
+            <div class="hiit-move">
+              <div class="hiit-move-name">Band Sprinter Pull</div>
+              <div class="hiit-move-time">20 sec on / 10 sec off</div>
+            </div>
+            <div class="hiit-move">
+              <div class="hiit-move-name">TRX Mountain Climbers</div>
+              <div class="hiit-move-time">20 sec on / 10 sec off</div>
+            </div>
+          </div>
+        </div>
+        <div class="note-box">
+          <strong>Coaching note:</strong> Saturday's session is about max effort in minimum time. Go heavy on the hang cleans — this is your power day. Tabata should leave you gasping. Foam roll for 10 min after and you're done for the week.
+        </div>
+      </div>
+    </div>
+
+    <!-- SUNDAY REST -->
+    <div class="day-card" data-type="rest">
+      <div class="day-header" onclick="toggle(this)">
+        <div class="day-number">07</div>
+        <div class="day-info">
+          <div class="day-name">Sunday — Full Rest</div>
+          <div class="day-meta">
+            <span class="day-type-badge badge-rest">Rest Day</span>
+            <span class="day-duration">⏱ Zero</span>
+          </div>
+        </div>
+        <div class="chevron">▾</div>
+      </div>
+      <div class="day-body">
+        <div class="rest-card">
+          <div class="rest-icon">💤</div>
+          <h3>Full Reset</h3>
+          <p>No training. Eat well, hydrate, sleep 8 hours. This is where the gains actually happen — supercompensation requires real rest. Prep your week, plan your lifts, and come back Monday locked in.</p>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end days-list -->
+
+</div>
+
+<script>
+  function toggle(header) {
+    const card = header.parentElement;
+    card.classList.toggle('open');
+  }
+
+  // Open Monday by default
+  document.querySelector('.day-card').classList.add('open');
+</script>
+</body>
+</html>
