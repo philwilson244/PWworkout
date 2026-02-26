@@ -86,13 +86,15 @@ function escapeHtml(s) {
   return div.innerHTML;
 }
 
-function showSwapModal(exerciseId, currentName, category, setsReps = '', notes = '', url = '', equipment = '') {
+function showSwapModal(exerciseId, currentName, category, setsReps = '', notes = '', url = '', equipment = '', muscleGroup = null) {
   const modal = document.createElement('div');
   modal.className = 'modal-overlay';
+  const recLabel = muscleGroup ? `Recommended for ${muscleGroup.replace(/\b\w/g, c => c.toUpperCase())}` : null;
   modal.innerHTML = `
     <div class="modal">
       <h3>Swap exercise</h3>
       <p>Current: ${escapeHtml(currentName)}</p>
+      ${recLabel ? `<p class="swap-recommend-label">${escapeHtml(recLabel)}</p>` : ''}
       <div class="swap-options">
         <label>From library:</label>
         <select id="swap-library-select">
@@ -130,12 +132,30 @@ function showSwapModal(exerciseId, currentName, category, setsReps = '', notes =
     equipmentSelect.innerHTML = '<option value="">None</option>' + opts.map(o => `<option value="${escapeHtml(o)}" ${o === equipment ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
   });
   getExerciseLibrary(category, equipmentTags).then(library => {
-    library.forEach(ex => {
-      const opt = document.createElement('option');
-      opt.value = ex.id;
-      opt.textContent = ex.name + (ex.equipment ? ` (${ex.equipment})` : '');
-      select.appendChild(opt);
-    });
+    const recommended = muscleGroup ? library.filter(ex => ex.muscle_group === muscleGroup) : [];
+    const other = muscleGroup ? library.filter(ex => ex.muscle_group !== muscleGroup) : library;
+    if (recommended.length) {
+      const recGroup = document.createElement('optgroup');
+      recGroup.label = `Recommended — ${muscleGroup.replace(/\b\w/g, c => c.toUpperCase())}`;
+      recommended.forEach(ex => {
+        const opt = document.createElement('option');
+        opt.value = ex.id;
+        opt.textContent = ex.name + (ex.equipment ? ` (${ex.equipment})` : '');
+        recGroup.appendChild(opt);
+      });
+      select.appendChild(recGroup);
+    }
+    if (other.length) {
+      const otherGroup = document.createElement('optgroup');
+      otherGroup.label = recommended.length ? 'Other exercises' : 'All exercises';
+      other.forEach(ex => {
+        const opt = document.createElement('option');
+        opt.value = ex.id;
+        opt.textContent = ex.name + (ex.equipment ? ` (${ex.equipment})` : '');
+        otherGroup.appendChild(opt);
+      });
+      select.appendChild(otherGroup);
+    }
   });
 
   modal.querySelector('[data-action="cancel"]').addEventListener('click', () => modal.remove());
@@ -270,9 +290,10 @@ async function main() {
     const notes = ex?.notes || '';
     const url = ex?.url || '';
     const equipment = ex?.display_equipment || ex?.equipment || '';
+    const muscleGroup = ex?.display_muscle_group || null;
     const day = ex ? currentPlanData?.plan?.days?.find(d => d.exercises?.some(x => x.id === exerciseId)) : null;
     const category = day?.type === 'hiit' ? 'hiit' : day?.type === 'upper' ? 'upper' : day?.type === 'lower' ? 'lower' : 'full';
-    showSwapModal(exerciseId, name, category, setsReps, notes, url, equipment);
+    showSwapModal(exerciseId, name, category, setsReps, notes, url, equipment, muscleGroup);
   });
 }
 

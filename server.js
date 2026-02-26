@@ -20,23 +20,28 @@ const supabaseAdmin = supabaseUrl && supabaseServiceKey
   : null;
 
 function resolveExerciseNames(exercises) {
-  if (!exercises?.length) return Promise.resolve(exercises.map(e => ({ ...e, display_name: e.custom_name || '', display_equipment: e.equipment || null })));
+  if (!exercises?.length) return Promise.resolve(exercises.map(e => ({ ...e, display_name: e.custom_name || '', display_equipment: e.equipment || null, display_muscle_group: null })));
   const libIds = [...new Set(exercises.map(e => e.library_exercise_id).filter(Boolean))];
-  if (libIds.length === 0) {
-    return Promise.resolve(exercises.map(e => ({ ...e, display_name: e.custom_name || '', display_equipment: e.equipment || null })));
-  }
+  const customNames = [...new Set(exercises.filter(e => e.custom_name && !e.library_exercise_id).map(e => e.custom_name))];
   const db = supabaseAdmin || supabase;
-  if (!db) return Promise.resolve(exercises.map(e => ({ ...e, display_name: e.custom_name || '', display_equipment: e.equipment || null })));
-  return db.from('exercise_library').select('id, name, equipment').in('id', libIds)
-    .then(({ data: libs }) => {
-      const nameMap = (libs || []).reduce((acc, l) => { acc[l.id] = l.name; return acc; }, {});
-      const equipMap = (libs || []).reduce((acc, l) => { acc[l.id] = l.equipment || null; return acc; }, {});
-      return exercises.map(e => ({
-        ...e,
-        display_name: e.custom_name || (e.library_exercise_id ? nameMap[e.library_exercise_id] || '' : ''),
-        display_equipment: e.library_exercise_id ? (equipMap[e.library_exercise_id] || null) : (e.equipment || null),
-      }));
-    });
+  if (!db) return Promise.resolve(exercises.map(e => ({ ...e, display_name: e.custom_name || '', display_equipment: e.equipment || null, display_muscle_group: null })));
+
+  const loadLibs = libIds.length ? db.from('exercise_library').select('id, name, equipment, muscle_group').in('id', libIds) : Promise.resolve({ data: [] });
+  const loadByName = customNames.length ? db.from('exercise_library').select('name, muscle_group').in('name', customNames) : Promise.resolve({ data: [] });
+
+  return Promise.all([loadLibs, loadByName]).then(([libRes, nameRes]) => {
+    const libs = libRes.data || [];
+    const byName = (nameRes.data || []).reduce((acc, l) => { acc[l.name] = l.muscle_group || null; return acc; }, {});
+    const nameMap = libs.reduce((acc, l) => { acc[l.id] = l.name; return acc; }, {});
+    const equipMap = libs.reduce((acc, l) => { acc[l.id] = l.equipment || null; return acc; }, {});
+    const muscleMap = libs.reduce((acc, l) => { acc[l.id] = l.muscle_group || null; return acc; }, {});
+    return exercises.map(e => ({
+      ...e,
+      display_name: e.custom_name || (e.library_exercise_id ? nameMap[e.library_exercise_id] || '' : ''),
+      display_equipment: e.library_exercise_id ? (equipMap[e.library_exercise_id] || null) : (e.equipment || null),
+      display_muscle_group: e.library_exercise_id ? (muscleMap[e.library_exercise_id] || null) : (e.custom_name ? byName[e.custom_name] || null : null),
+    }));
+  });
 }
 
 app.use(express.json());
