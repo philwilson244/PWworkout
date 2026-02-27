@@ -118,7 +118,7 @@ export function renderPlan(container, { user_plan, plan, completions }) {
     <header>
       <div class="header-top">
         <div>
-          <div class="program-label">● Home Gym Program</div>
+          <div class="program-label">● Home Gym Program <span class="app-version" title="If you see v4, the latest deploy is active">· v4</span></div>
           <h1>WEEKLY<br><span>GRIND</span></h1>
         </div>
         <div class="stats-bar">
